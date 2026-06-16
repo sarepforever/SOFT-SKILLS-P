@@ -470,7 +470,7 @@ let ANTHROPIC_API_KEY = '';
 
 async function loadApiKey() {
   try {
-    var snap = await get(ref(db, 'config/KeyAntropi'));
+    var snap = await get(ref(db, 'KeyAntropi'));
     if (snap.exists()) {
       ANTHROPIC_API_KEY = snap.val();
     } else {
