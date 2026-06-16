@@ -470,14 +470,16 @@ let ANTHROPIC_API_KEY = '';
 
 async function loadApiKey() {
   try {
+    console.log('[KEY] Leyendo key desde Firebase...');
     var snap = await get(ref(db, 'KeyAntropi'));
     if (snap.exists()) {
       ANTHROPIC_API_KEY = snap.val();
+      console.log('[KEY] ✅ Key cargada correctamente. Longitud:', ANTHROPIC_API_KEY.length, '| Inicio:', ANTHROPIC_API_KEY.substring(0,12)+'...');
     } else {
-      console.error('API key no encontrada en Firebase.');
+      console.error('[KEY] ❌ No existe /config/KeyAntropi en Firebase.');
     }
   } catch(e) {
-    console.error('Error cargando API key:', e);
+    console.error('[KEY] ❌ Error leyendo key:', e.message);
   }
 }
 const firebaseConfig = {
