@@ -313,6 +313,59 @@ header{
 }
 #btn-restart:hover{background:rgba(255,255,255,0.08);color:#fff;border-color:rgba(255,255,255,0.2)}
 
+#btn-pdf{
+  width:100%;
+  background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.08));
+  border:1px solid rgba(16,185,129,0.3);color:var(--green);
+  border-radius:14px;padding:13px;font-size:13px;font-weight:700;
+  font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-bottom:12px;letter-spacing:0.04em;
+}
+#btn-pdf:hover{background:linear-gradient(135deg,rgba(16,185,129,0.25),rgba(16,185,129,0.15));box-shadow:0 0 20px rgba(16,185,129,0.2)}
+
+/* PDF PRINT STYLES */
+@media print{
+  body{background:#fff!important;color:#1C2B45!important}
+  body::before,body::after{display:none!important}
+  header,#analysis-loading,#btn-restart,#btn-pdf,#team-reveal,#toast{display:none!important}
+  #analysis-screen{padding:0!important;background:#fff!important}
+  #analysis-result{max-width:100%!important;display:block!important}
+  .result-header{
+    background:linear-gradient(135deg,#0F2044,#1A4B8C)!important;
+    border-radius:16px!important;margin-bottom:16px!important;
+    -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+  }
+  .result-card{
+    background:#fff!important;border:1px solid #E8EDF5!important;
+    box-shadow:none!important;break-inside:avoid!important;
+    margin-bottom:10px!important;border-radius:10px!important;
+  }
+  .result-card::before{display:none!important}
+  .rc-label{color:#5A6E8A!important}
+  .rc-titular,.rc-title{color:#0F2044!important}
+  .rc-desc,.rc-list li,.rc-superpoder,.rc-mensaje{color:#1C2B45!important}
+  .rc-quote{color:#5A6E8A!important;border-left-color:#F0B429!important}
+  .rc-author{color:#0F2044!important}
+  .mini-chip{background:#E8EDF5!important;color:#1C2B45!important;border-color:#D0D9E8!important}
+  .result-name{text-shadow:none!important}
+  .card-titular{border-left-color:#F0B429!important}
+  .card-comunicarse{border-left-color:#2E7DD1!important}
+  .card-profesional{border-left-color:#7B61FF!important}
+  .card-personal{border-left-color:#10B981!important}
+  .card-fortalezas{border-left-color:#A78BFA!important}
+  .card-superpoder{border-left-color:#F59E0B!important;background:#FFFAF0!important}
+  .card-mensaje{border-left-color:#0F2044!important;background:#EBF4FF!important}
+  .rc-icon{filter:none!important}
+  #pdf-footer{display:block!important}
+}
+
+#pdf-footer{
+  display:none;
+  text-align:center;margin-top:24px;padding-top:16px;
+  border-top:1px solid #E8EDF5;font-size:11px;color:#8A9BB5;
+}
+
 /* TEAM ANALYSIS REVEAL */
 #team-reveal{display:none;max-width:780px;margin:0 auto 60px;padding:0 0 20px}
 #team-reveal.visible{display:block}
@@ -446,7 +499,12 @@ header{
       <div class="result-pyramid-mini" id="result-pyramid-mini"></div>
     </div>
     <div class="result-body" id="result-body"></div>
+    <button id="btn-pdf">📄 Descargar mi perfil en PDF</button>
     <button id="btn-restart">🔄 Nueva pirámide</button>
+    <div id="pdf-footer">
+      Taller de Soft Skills · Perfil de Comunicación<br>
+      Generado con IA · <span id="pdf-date"></span>
+    </div>
   </div>
 </div>
 
@@ -549,6 +607,21 @@ async function joinSession(){
   badge.textContent=code; badge.style.display='inline-block';
   document.getElementById('pyramid-title').textContent='El perfil de '+name;
   renderPool(); setupSlots(); listenForTeamAnalysis();
+  registerParticipant();
+}
+
+async function registerParticipant(){
+  var safeKey=playerName.replace(/[.#$\/\[\]]/g,'_');
+  var existing=await get(ref(db,'sessions/'+sessionCode+'/participantes/'+safeKey));
+  if(!existing.exists()){
+    await set(ref(db,'sessions/'+sessionCode+'/participantes/'+safeKey),{
+      nombre:playerName,
+      timestamp:Date.now(),
+      completado:false,
+      estado:'unido'
+    });
+    console.log('[FB] Participante registrado:', playerName);
+  }
 }
 
 function renderPool(){
@@ -616,7 +689,20 @@ function renderSlot(level,slotIdx,cardData){
 function updatePoolUsed(){document.querySelectorAll('#cards-pool .value-card').forEach(function(card){if(isValueUsed(card.dataset.id))card.classList.add('used');else card.classList.remove('used');});}
 function countFilled(){var c=0;[1,2,3].forEach(function(lvl){c+=pyramidState[lvl].filter(function(v){return v!==null;}).length;});return c;}
 function updateProgress(){var f=countFilled();document.getElementById('progress-text').textContent=f+' de '+TOTAL_SLOTS+' rasgos ubicados';document.getElementById('progress-fill').style.width=(f/TOTAL_SLOTS*100)+'%';}
-function updateSendButton(){document.getElementById('btn-send').disabled=countFilled()<TOTAL_SLOTS;}
+function updateSendButton(){
+  var filled=countFilled();
+  document.getElementById('btn-send').disabled=filled<TOTAL_SLOTS;
+  updateFirebaseProgress(filled);
+}
+
+function updateFirebaseProgress(filled){
+  if(!sessionCode||!playerName)return;
+  var safeKey=playerName.replace(/[.#$\/\[\]]/g,'_');
+  var estado=filled===0?'unido':filled<TOTAL_SLOTS?'en_progreso':'listo';
+  var progreso=Math.round((filled/9)*100);
+  set(ref(db,'sessions/'+sessionCode+'/participantes/'+safeKey+'/estado'),estado);
+  set(ref(db,'sessions/'+sessionCode+'/participantes/'+safeKey+'/progreso'),progreso);
+}
 
 function getCardData(id){for(var i=0;i<MASLOW_LEVELS.length;i++){var val=MASLOW_LEVELS[i].values.find(function(v){return v.id===id;});if(val)return Object.assign({},val,{maslow_level:MASLOW_LEVELS[i].id,maslow_label:MASLOW_LEVELS[i].label});}return null;}
 
@@ -647,6 +733,18 @@ function buildPrompt(){
 
 document.getElementById('btn-send').addEventListener('click',analyzeWithClaude);
 document.getElementById('btn-restart').addEventListener('click',restartApp);
+document.getElementById('btn-pdf').addEventListener('click',downloadPDF);
+
+function downloadPDF(){
+  // Set date in footer
+  var now=new Date();
+  document.getElementById('pdf-date').textContent=now.toLocaleDateString('es-ES',{year:'numeric',month:'long',day:'numeric'});
+  // Make all result cards visible immediately (no opacity 0)
+  document.querySelectorAll('#result-body > div').forEach(function(w){
+    w.style.opacity='1';w.style.transform='translateY(0)';w.style.transition='none';
+  });
+  setTimeout(function(){window.print();},100);
+}
 
 async function analyzeWithClaude(){
   document.getElementById('app').style.display='none';
